@@ -15,3 +15,12 @@ on:
         description: 'Issue Description'
         required: true
         type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print inputs
+        run: |
+          echo "Issue Key: ${{ github.event.inputs.issue_key }}"
+          echo "Summary: ${{ github.event.inputs.issue_summary }}"
