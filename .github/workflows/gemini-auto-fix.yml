@@ -29,49 +29,60 @@ jobs:
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Install jq
-        run: sudo apt-get install jq -y
+        run: sudo apt-get update && sudo apt-get install jq -y
 
       # 🔥 STEP 1: Read Actual File
       - name: Read File Content
-        id: readfile
         run: |
+          if [ ! -f src/index.js ]; then
+            echo "src/index.js not found!"
+            exit 1
+          fi
+
           FILE_CONTENT=$(cat src/index.js)
+
           echo "FILE_CONTENT<<EOF" >> $GITHUB_ENV
           echo "$FILE_CONTENT" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-      # 🔥 STEP 2: Send File + Issue to Gemini
+      # 🔥 STEP 2: Call Gemini (Correct Model + Safe JSON)
       - name: Call Gemini API
         run: |
-          ISSUE_PROMPT="You are a senior engineer.
+          ISSUE_PROMPT=$(cat <<EOF
+You are a senior software engineer.
 
-          Fix the bug in this file.
+Fix the bug in the following file.
 
-          Issue Summary:
-          ${{ github.event.inputs.issue_summary }}
+Issue Summary:
+${{ github.event.inputs.issue_summary }}
 
-          Issue Description:
-          ${{ github.event.inputs.issue_description }}
+Issue Description:
+${{ github.event.inputs.issue_description }}
 
-          Here is the file content:
+Here is the file content:
 
-          $FILE_CONTENT
+$FILE_CONTENT
 
-          Return ONLY the FULL corrected file content.
-          Do not explain anything."
+Return ONLY the FULL corrected file content.
+Do not add explanations.
+EOF
+)
 
-          RESPONSE=$(curl -s https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent \
+          RESPONSE=$(curl -s https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent \
             -H "Content-Type: application/json" \
             -H "X-goog-api-key: ${{ secrets.GEMINI_API_KEY }}" \
-            -d "{
-              \"contents\": [{
-                \"parts\": [{\"text\": \"$ISSUE_PROMPT\"}]
-              }]
-            }")
+            -d "$(jq -n --arg prompt "$ISSUE_PROMPT" \
+              '{contents: [{parts: [{text: $prompt}]}]}')")
 
           echo "$RESPONSE" > gemini_response.json
 
-          FIX_CODE=$(cat gemini_response.json | jq -r '.candidates[0].content.parts[0].text')
+          FIX_CODE=$(jq -r '.candidates[0].content.parts[0].text // empty' gemini_response.json)
+
+          if [ -z "$FIX_CODE" ]; then
+            echo "Gemini returned empty response or error."
+            cat gemini_response.json
+            exit 1
+          fi
 
           echo "$FIX_CODE" > src/index.js
 
@@ -80,6 +91,7 @@ jobs:
         run: |
           git config user.name "gemini-bot"
           git config user.email "bot@example.com"
+
           git add src/index.js
 
           if git diff --cached --quiet; then
@@ -95,6 +107,6 @@ jobs:
         with:
           title: "AI Auto Fix: Issue #${{ github.event.inputs.issue_key }}"
           body: |
-            🤖 Automatically generated fix using Gemini AI.
+            🤖 Automatically generated fix using Gemini 1.5 Flash.
           branch: ${{ env.BRANCH_NAME }}
           base: main
