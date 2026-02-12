@@ -6,7 +6,7 @@ on:
       issue_key:
         required: true
       issue_summary:
-        required: true
+        required: true 
       issue_description:
         required: true
 
