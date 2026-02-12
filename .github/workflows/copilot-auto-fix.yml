@@ -1,0 +1,32 @@
+name: Copilot coding agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_key:
+        description: "Jira Issue Key"
+        required: true
+      issue_summary:
+        description: "Issue Summary"
+        required: true
+      issue_description:
+        description: "Issue Description"
+        required: true
+
+jobs:
+  copilot-fix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create branch
+        run: |
+          git checkout -b fix-${{ github.event.inputs.issue_key }}
+
+      - name: Print issue details
+        run: |
+          echo "Issue: ${{ github.event.inputs.issue_key }}"
+          echo "Summary: ${{ github.event.inputs.issue_summary }}"
+          echo "Description: ${{ github.event.inputs.issue_description }}"
