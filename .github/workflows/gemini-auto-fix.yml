@@ -31,11 +31,21 @@ jobs:
       - name: Install jq
         run: sudo apt-get install jq -y
 
-      - name: Call Gemini API
-        id: gemini
+      # 🔥 STEP 1: Read Actual File
+      - name: Read File Content
+        id: readfile
         run: |
-          ISSUE_PROMPT="You are a senior software engineer. 
-          Fix this issue in the repository.
+          FILE_CONTENT=$(cat src/index.js)
+          echo "FILE_CONTENT<<EOF" >> $GITHUB_ENV
+          echo "$FILE_CONTENT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      # 🔥 STEP 2: Send File + Issue to Gemini
+      - name: Call Gemini API
+        run: |
+          ISSUE_PROMPT="You are a senior engineer.
+
+          Fix the bug in this file.
 
           Issue Summary:
           ${{ github.event.inputs.issue_summary }}
@@ -43,8 +53,12 @@ jobs:
           Issue Description:
           ${{ github.event.inputs.issue_description }}
 
-          Analyze the repository files and suggest corrected code.
-          Return ONLY corrected file content."
+          Here is the file content:
+
+          $FILE_CONTENT
+
+          Return ONLY the FULL corrected file content.
+          Do not explain anything."
 
           RESPONSE=$(curl -s https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent \
             -H "Content-Type: application/json" \
@@ -59,17 +73,20 @@ jobs:
 
           FIX_CODE=$(cat gemini_response.json | jq -r '.candidates[0].content.parts[0].text')
 
-          echo "$FIX_CODE" > gemini_fix.txt
+          echo "$FIX_CODE" > src/index.js
 
-      - name: Apply Fix (Example to index.js)
-        run: |
-          cp gemini_fix.txt index.js
-
+      # 🔥 STEP 3: Commit ONLY if changed
       - name: Commit Changes
         run: |
           git config user.name "gemini-bot"
           git config user.email "bot@example.com"
-          git add .
+          git add src/index.js
+
+          if git diff --cached --quiet; then
+            echo "No changes detected. Skipping commit."
+            exit 0
+          fi
+
           git commit -m "fix: resolve issue #${{ github.event.inputs.issue_key }}"
           git push origin $BRANCH_NAME
 
