@@ -2,6 +2,14 @@ name: Copilot coding agent
 
 on:
   workflow_dispatch:
+    inputs:
+      issue_key:
+        required: true
+      issue_summary:
+        required: true
+      issue_description:
+        required: true
+
 
 jobs:
   test:
