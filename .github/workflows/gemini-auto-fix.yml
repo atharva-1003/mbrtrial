@@ -7,4 +7,5 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Workflow dispatch works"
+      - name: Test Step
+        run: echo "Workflow is valid"
