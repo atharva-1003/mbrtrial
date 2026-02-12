@@ -1,0 +1,83 @@
+name: Gemini Auto Fix Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_key:
+        required: true
+      issue_summary:
+        required: true
+      issue_description:
+        required: true
+
+jobs:
+  auto-fix:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Fix Branch
+        run: |
+          BRANCH_NAME="fix/issue-${{ github.event.inputs.issue_key }}"
+          git checkout -b $BRANCH_NAME
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Install jq
+        run: sudo apt-get install jq -y
+
+      - name: Call Gemini API
+        id: gemini
+        run: |
+          ISSUE_PROMPT="You are a senior software engineer. 
+          Fix this issue in the repository.
+
+          Issue Summary:
+          ${{ github.event.inputs.issue_summary }}
+
+          Issue Description:
+          ${{ github.event.inputs.issue_description }}
+
+          Analyze the repository files and suggest corrected code.
+          Return ONLY corrected file content."
+
+          RESPONSE=$(curl -s https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent \
+            -H "Content-Type: application/json" \
+            -H "X-goog-api-key: ${{ secrets.GEMINI_API_KEY }}" \
+            -d "{
+              \"contents\": [{
+                \"parts\": [{\"text\": \"$ISSUE_PROMPT\"}]
+              }]
+            }")
+
+          echo "$RESPONSE" > gemini_response.json
+
+          FIX_CODE=$(cat gemini_response.json | jq -r '.candidates[0].content.parts[0].text')
+
+          echo "$FIX_CODE" > gemini_fix.txt
+
+      - name: Apply Fix (Example to index.js)
+        run: |
+          cp gemini_fix.txt index.js
+
+      - name: Commit Changes
+        run: |
+          git config user.name "gemini-bot"
+          git config user.email "bot@example.com"
+          git add .
+          git commit -m "fix: resolve issue #${{ github.event.inputs.issue_key }}"
+          git push origin $BRANCH_NAME
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: "AI Auto Fix: Issue #${{ github.event.inputs.issue_key }}"
+          body: |
+            🤖 Automatically generated fix using Gemini AI.
+          branch: ${{ env.BRANCH_NAME }}
+          base: main
