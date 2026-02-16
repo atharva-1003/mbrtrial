@@ -1,59 +1,49 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <!-- Fixed viewport syntax (was width-device-width) -->
+    <!-- Fixed viewport meta -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Login application"
-    />
+    <meta name="description" content="Login application" />
     <title>Login App</title>
   </head>
   <body>
     <div id="root">
-      <form action="/login" method="post">
+      <!-- Keep a real form so non-JS/regular form submit still works -->
+      <form action="/login" method="post" id="loginForm">
         <button type="submit">Login</button>
       </form>
     </div>
 
     <script>
-      // Improve reliability of the login button behavior:
-      // - Ensure we don't try to bind to a missing element
-      // - Provide a JS fallback that redirects to the login route when clicked
-      //   (useful for static setups or SPAs where server-side form submit may not work)
-      (function() {
+      // Improve reliability of the login button by NOT preventing the
+      // browser's native submit behavior. Previous code intercepted the
+      // submit event and used window.location.href which prevented the
+      // normal POST submit and could make the button appear unresponsive
+      // in some environments.
+      (function () {
         var form = document.querySelector('form[action="/login"]');
         if (!form) return;
 
         var button = form.querySelector('button[type="submit"]');
         if (!button) return;
 
-        // Use submit handler on the form to catch submit triggered by keyboard as well
-        form.addEventListener('submit', function (event) {
-          // If the app has a backend route at /login, allow normal form submission.
-          // Otherwise, prevent default and perform a client-side redirect to /login.
-          // This makes the button responsive even in static-hosted environments.
-          var action = form.getAttribute('action') || '/login';
-
-          // Try to detect if the page is served from file: or if the action is not reachable
-          // We'll prevent default and redirect so users see the login page/route.
-          event.preventDefault();
-          window.location.href = action;
-        });
-
-        // Optional: a click handler just for logging/debugging (kept minimal)
+        // Add a simple click logger for debugging; do NOT call
+        // event.preventDefault() here so the native submit/navigation works.
         button.addEventListener('click', function () {
-          // Helpful while debugging in the browser console
-          console.log('Login button clicked');
+          // Helpful debug message in dev tools when developers investigate
+          // why a click did or didn't cause navigation.
+          if (window && window.console) {
+            console.log('Login button clicked; allowing native form submit/navigation.');
+          }
         });
       })();
     </script>
 
     <noscript>
-      This application requires JavaScript to redirect to the login page. If you do not have JavaScript
-      enabled, please navigate to /login manually.
+      This application requires JavaScript for client-side redirection. If JavaScript is
+      disabled, please click <a href="/login">here</a> to go to the login page.
     </noscript>
   </body>
 </html>
