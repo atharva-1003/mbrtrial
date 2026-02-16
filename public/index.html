@@ -12,52 +12,57 @@
   <div id="root">
     <!-- Keep a real form so it can still submit if JS is disabled -->
     <form action="/login" method="post" id="loginForm">
-      <!-- Use type="button" so clicks are handled explicitly by our script (avoid accidental/default submits)
-           We attach a robust handler below that will submit the form when appropriate or navigate to /login. -->
-      <button type="button" id="loginButton">Login</button>
+      <!-- Use type="submit" so the form will work without JavaScript. JS will enhance behavior when available. -->
+      <button type="submit" id="loginButton">Login</button>
     </form>
   </div>
 
   <script>
   (function () {
-    // Minimal, robust login handler:
-    // - Ensures clicking the Login UI always either submits the form (if present) or navigates to the /login route.
-    // - Avoids relying on brittle assumptions and prevents uncaught exceptions from leaving the button unresponsive.
+    // Robust login behavior:
+    // - Allow native form submission by default (button type="submit").
+    // - If JavaScript is present, enhance behavior by handling form 'submit' or providing a fallback navigation
+    //   when the form/action is missing. This avoids leaving the button unresponsive when JS fails to attach.
 
-    var form = document.querySelector('form[action="/login"]');
+    var form = document.getElementById('loginForm');
     var button = document.getElementById('loginButton');
 
     if (!button) {
       return; // nothing to attach to
     }
 
-    function goToLogin() {
-      try {
-        if (form && typeof form.submit === 'function') {
-          // Submit the form programmatically. This preserves method and any form fields.
-          form.submit();
-        } else {
-          // Fallback navigation
+    if (form) {
+      // Attach to the form submit event rather than button click. This preserves native submit behavior
+      // and also allows us to intercept cases where the form has no action configured.
+      form.addEventListener('submit', function (e) {
+        try {
+          var action = form.getAttribute('action');
+          // If there is no action (or it's empty), prevent the no-op submit and navigate to a known login route.
+          if (!action || action.trim() === '') {
+            e.preventDefault();
+            window.location.href = '/login';
+            return;
+          }
+          // Otherwise, allow the native submit to proceed. If you need to do client-side AJAX authentication
+          // you could preventDefault here and implement it; we purposely allow default to ensure functionality
+          // when JS is incomplete or other errors occur.
+        } catch (err) {
+          // If anything goes wrong, prevent a broken submit and navigate instead so the button isn't silent.
+          if (e && typeof e.preventDefault === 'function') e.preventDefault();
+          if (window && window.console) console.error('Error handling login submit, falling back to navigation', err);
           window.location.href = '/login';
         }
-      } catch (err) {
-        if (window && window.console) console.error('Error while navigating to /login', err);
-        // Final fallback
+      }, false);
+    } else {
+      // No form: ensure clicking navigates to login page.
+      button.addEventListener('click', function (e) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
         window.location.href = '/login';
-      }
+      }, false);
     }
 
-    button.addEventListener('click', function (e) {
-      // Prevent default behaviour to avoid unexpected native submits
-      if (e && typeof e.preventDefault === 'function') {
-        e.preventDefault();
-      }
-      // Small timeout to allow other handlers (if any) to run first
-      setTimeout(goToLogin, 0);
-    }, false);
-
     if (window && window.console) {
-      console.log('Login button click handler attached');
+      console.log('Login form/handler initialized');
     }
   })();
   </script>
