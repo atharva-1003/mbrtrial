@@ -1,67 +1,70 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <!-- Fixed viewport meta -->
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Login application" />
-    <title>Login App</title>
-  </head>
-  <body>
-    <div id="root">
-      <!-- Keep a real form so non-JS submit works -->
-      <form action="/login" method="post" id="loginForm">
-        <button type="submit" id="loginButton">Login</button>
-      </form>
-    </div>
+<head>
+  <meta charset="utf-8" />
+  <!-- Fixed viewport meta -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="Login application" />
+  <title>Login App</title>
+</head>
+<body>
+  <div id="root">
+    <!-- Keep a real form so it can still submit if JS is disabled -->
+    <form action="/login" method="post" id="loginForm">
+      <!-- Use type="button" so clicks are handled explicitly by our script (avoid accidental/default submits)
+           We attach a robust handler below that will submit the form when appropriate or navigate to /login. -->
+      <button type="button" id="loginButton">Login</button>
+    </form>
+  </div>
 
-    <script>
-      (function () {
-        // Robust client-side handler to ensure the Login control actually triggers navigation/submit.
-        var form = document.querySelector('form[action="/login"]');
-        if (!form) return;
+  <script>
+  (function () {
+    // Minimal, robust login handler:
+    // - Ensures clicking the Login UI always either submits the form (if present) or navigates to the /login route.
+    // - Avoids relying on brittle assumptions and prevents uncaught exceptions from leaving the button unresponsive.
 
-        var button = form.querySelector('button[type="submit"]');
-        if (!button) return;
+    var form = document.querySelector('form[action="/login"]');
+    var button = document.getElementById('loginButton');
 
-        // Attach a resilient click handler that will attempt to submit the form programmatically
-        // and fall back to a direct navigation if form submission fails or has been prevented.
-        button.addEventListener(
-          'click',
-          function (e) {
-            try {
-              // If some other script called preventDefault on this event, we still attempt to submit.
-              // Use a small timeout to allow other click handlers to run first.
-              setTimeout(function () {
-                try {
-                  if (form && typeof form.submit === 'function') {
-                    form.submit();
-                  } else {
-                    window.location.href = '/login';
-                  }
-                } catch (err) {
-                  // Final fallback: navigate to the login URL
-                  window.location.href = '/login';
-                }
-              }, 0);
-            } catch (err) {
-              if (window && window.console) console.error('Login button handler error', err);
-              window.location.href = '/login';
-            }
-          },
-          false
-        );
+    if (!button) {
+      return; // nothing to attach to
+    }
 
-        if (window && window.console) {
-          console.log('Login button click handler attached');
+    function goToLogin() {
+      try {
+        if (form && typeof form.submit === 'function') {
+          // Submit the form programmatically. This preserves method and any form fields.
+          form.submit();
+        } else {
+          // Fallback navigation
+          window.location.href = '/login';
         }
-      })();
-    </script>
+      } catch (err) {
+        if (window && window.console) console.error('Error while navigating to /login', err);
+        // Final fallback
+        window.location.href = '/login';
+      }
+    }
 
-    <noscript>
-      This application requires JavaScript for client-side redirection. If JavaScript is disabled, click
-      <a href="/login">here</a> to go to the login page.
-    </noscript>
-  </body>
+    button.addEventListener('click', function (e) {
+      // Prevent default behaviour to avoid unexpected native submits
+      if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+      }
+      // Small timeout to allow other handlers (if any) to run first
+      setTimeout(goToLogin, 0);
+    }, false);
+
+    if (window && window.console) {
+      console.log('Login button click handler attached');
+    }
+  })();
+  </script>
+
+  <noscript>
+    This application requires JavaScript for client-side redirection. If JavaScript is disabled,
+    <a href="/login">click here</a> to go to the login page.
+  </noscript>
+</body>
 </html>
