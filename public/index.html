@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -13,6 +13,8 @@
     <!-- Keep a real form so it can still submit if JS is disabled -->
     <form action="/login" method="post" id="loginForm">
       <!-- Use type="submit" so the form will work without JavaScript. JS will enhance behavior when available. -->
+      <input type="text" id="username" name="username" placeholder="Username" required />
+      <input type="password" id="password" name="password" placeholder="Password" required />
       <button type="submit" id="loginButton">Login</button>
     </form>
   </div>
@@ -21,8 +23,9 @@
   (function () {
     // Robust login behavior:
     // - Allow native form submission by default (button type="submit").
-    // - If JavaScript is present, enhance behavior by handling form 'submit' or providing a fallback navigation
-    //   when the form/action is missing. This avoids leaving the button unresponsive when JS fails to attach.
+    // - If JavaScript is present, enhance behavior by handling form 'submit' event.
+    // - Prevent default and perform AJAX login on submit.
+    // - On failure, show error message and prevent navigation.
 
     var form = document.getElementById('loginForm');
     var button = document.getElementById('loginButton');
@@ -32,26 +35,23 @@
     }
 
     if (form) {
-      // Attach to the form submit event rather than button click. This preserves native submit behavior
-      // and also allows us to intercept cases where the form has no action configured.
       form.addEventListener('submit', function (e) {
-        try {
-          var action = form.getAttribute('action');
-          // If there is no action (or it's empty), prevent the no-op submit and navigate to a known login route.
-          if (!action || action.trim() === '') {
-            e.preventDefault();
-            window.location.href = '/login';
-            return;
+        e.preventDefault();
+        var formData = new FormData(form);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+              // Successfully logged in, redirect or update UI
+              window.location.href = '/dashboard';
+            } else {
+              // Login failed
+              alert('Login failed: ' + xhr.statusText);
+            }
           }
-          // Otherwise, allow the native submit to proceed. If you need to do client-side AJAX authentication
-          // you could preventDefault here and implement it; we purposely allow default to ensure functionality
-          // when JS is incomplete or other errors occur.
-        } catch (err) {
-          // If anything goes wrong, prevent a broken submit and navigate instead so the button isn't silent.
-          if (e && typeof e.preventDefault === 'function') e.preventDefault();
-          if (window && window.console) console.error('Error handling login submit, falling back to navigation', err);
-          window.location.href = '/login';
-        }
+        };
+        xhr.send(formData);
       }, false);
     } else {
       // No form: ensure clicking navigates to login page.
